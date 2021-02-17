@@ -32,6 +32,9 @@
     <ClInclude Include="constForVDRCOpenGLWidget.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Color3f.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="VDRCOpenGLWidget.cpp">
@@ -42,6 +45,9 @@
     </ClCompile>
     <ClCompile Include="GeneratedFiles\Release\moc_VDRCOpenGLWidget.cpp">
       <Filter>Generated Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Color3f.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

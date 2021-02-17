@@ -7,10 +7,6 @@
 
 #include "rg_Point3D.h"
 #include "rg_TMatrix3D.h"
-#include "BallGeneratorCore.h"
-#include "VEdgeCore.h"
-#include "VVertexCore.h"
-#include "VFaceCore.h"
 
 #include "Color3f.h"
 #include <list>
@@ -20,8 +16,6 @@
 #include <set>
 
 using namespace std;
-using namespace BULL;
-using namespace CoreTier;
 
 class VDRCOpenGLWidget : public QOpenGLWidget
 {
@@ -54,15 +48,13 @@ public:
 	QPoint lastPos;
 
 	//For picking
-	PICK_MODE m_pickMode;
 	GLuint m_buff[SELECTION_BUFFER_SIZE];
 	GLint   m_hits;
-	map<int, VVertexCore*> m_mapForVVertexID;
 
-	VVertexCore* m_selectedVtx;
+	//VVertexCore* m_selectedVtx;
 	bool m_bDisableRotation;
 
-	int m_eyeDistance = 1000;
+	float m_eyeDistance = 1;
 
 public:
 	explicit VDRCOpenGLWidget(QWidget *parent = 0);
@@ -71,17 +63,15 @@ public:
 	void initializeGL();
 	void paintGL();
 	void resizeGL(int width, int height);
-	void perspective(GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble zFar);
-
+	
 	virtual void draw() = 0;
 
 	QSize minimumSizeHint() const;
 	QSize sizeHint() const;
-	void mousePressEvent(QMouseEvent *event);
-	void mouseMoveEvent(QMouseEvent *event);
-	void wheelEvent(QWheelEvent* event);
+	virtual void mousePressEvent(QMouseEvent *event) = 0;
+	virtual void mouseMoveEvent(QMouseEvent *event);
+	virtual void wheelEvent(QWheelEvent* event);
 	
-
 	inline void set_eye_distance(const float& distance) { m_eyeDistance = distance; }
 	inline void set_local_origin(const float& x, const float& y, const float& z) { localOrigin.setPoint(x, y, z); }
 
@@ -90,28 +80,24 @@ public:
 	//bool		rotate_eye_position_at_local_cener_point(float angleX, float angleY, float angleZ, rg_TMatrix3D& localCenterPt);
 	void		set_eye_direction(rg_Point3D eyeDirection);
 
-	bool    zoom(const float fScale);
-
 	void    get_rotation(const rg_TMatrix3D& rotationMatrix, float*& rotationFactors) const;
 
 	//Drawing voronoi elements
-	void draw_generators(const list<BallGeneratorCore*>& generators) const;
+	/*void draw_generators(const list<BallGeneratorCore*>& generators) const;
 	void draw_voronoi_vertex(const list<VVertexCore*>& VVertices, const float& ballRadius, const Color3f& color, const float& A = 1.0);
 	void draw_voronoi_edges(const list<VEdgeCore*>& VEdges, const float& thickness, const Color3f& color, const float& A = 1.0, const bool& isStipple = false) const;
-	void draw_voronoi_faces(const list<VFaceCore*>& VFaces, const Color3f& color, const float& A = 1.0) const;
+	void draw_voronoi_faces(const list<VFaceCore*>& VFaces, const Color3f& color, const float& A = 1.0) const;*/
 
 	//Drawing geometric elements
 	void draw_sphere(const rg_Point3D& center, const float& radius, const Color3f& color, const float& A = 1.0, const int& elementID = -1) const;
 	void draw_point(rg_Point3D& pt, const float& ptSize, const Color3f& color, const float& A = 1.0, const int& elementID = -1) const;
 	void draw_line(const rg_Point3D& pt1, const rg_Point3D& pt2, const float& width, const Color3f& color, const float& A = 1.0) const;
 	void draw_line_stipple(const rg_Point3D& pt1, const rg_Point3D& pt2, const float& thickness, const Color3f& color, const float& A = 1.0) const;
-	void draw_face(const list<rg_Point3D>& points, const Color3f& color, const float& A = 1.0) const;
+	void draw_face(const array<rg_Point3D, 3>& points, const rg_Point3D& normal, const Color3f& color, const float& A = 1.0, const int& elementID = -1) const;
 	void draw_triangle(const array<rg_Point3D, 3>& points, const Color3f& color, const float& A = 1.0) const;
 	void draw_octagonal_cone(const rg_Point3D& base, const rg_Point3D& tip, const float& radius, const Color3f& color, const float& A = 1.0) const;
 
 	//For picking
-	void gl_select(int x, int y);
-	bool find_selected_elements();
-	VVertexCore* find_closest_VVertex(const list<int>& elementIDList);
-	void enlist_VVertices(set<VVertexCore*>& vertices);
+	void pick_object(int x, int y);
+	virtual void process_picking(const int& hits, const GLuint* selectBuff) = 0;
 };

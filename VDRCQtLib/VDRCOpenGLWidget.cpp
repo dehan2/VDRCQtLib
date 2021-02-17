@@ -3,7 +3,7 @@
 #include <QGLWidget>
 #include "VDRCOpenGLWidget.h"
 #include "constForVDRCOpenGLWidget.h"
-#include "DynamicBall.h"
+#include <iostream>
 
 VDRCOpenGLWidget::VDRCOpenGLWidget(QWidget *parent)
 	: QOpenGLWidget(parent),
@@ -58,7 +58,6 @@ localZ(0.0, 0.0, 1.0)
 	emittedMaterial[3] = 0.0f;
 	shininess = 25.0f;
 
-	zoomFactor = 1;
 	m_bDisableRotation = false;
 }
 
@@ -106,60 +105,44 @@ void VDRCOpenGLWidget::initializeGL()
 void VDRCOpenGLWidget::paintGL()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	initialize_eye_position();
-	zoom(zoomFactor);
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	glLoadIdentity();
+
+	const rg_Point3D target(localOrigin);
+	const rg_Point3D eyePt = localOrigin + localZ * m_eyeDistance;
+	const rg_Point3D up(localY);
+
+	gluLookAt(eyePt.getX(), eyePt.getY(), eyePt.getZ(),
+		target.getX(), target.getY(), target.getZ(),
+		up.getX(), up.getY(), up.getZ());
+
+	glInitNames();
+	glPushName(0);
+
 	draw();
+
+	glPopMatrix();
 }
 
 void VDRCOpenGLWidget::resizeGL(int width, int height)
 {
-	GLdouble aspect_ratio; // width/height ratio
-
 	// select the full client area
 	glViewport(0, 0, width, height);
 
 	// compute the aspect ratio
 	// this will keep all dimension scales equal
-	aspect_ratio = (GLdouble)width / (GLdouble)height;
+	float aspect_ratio = (GLdouble)width / (GLdouble)height;
 
 	// select the projection matrix and clear it
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	//float basicSize = 10000;
-	//glOrtho(-basicSize*width, basicSize*width, -basicSize*height, basicSize*height, -basicSize, basicSize);
 
 	// select the viewing volume
-	perspective(45.0f/zoomFactor, aspect_ratio, .1f, 10000.0f);
+	gluPerspective(45.0f, aspect_ratio, .1f, MAX_DEPTH);
 
 	// switch back to the modelview matrix and clear it
 	glMatrixMode(GL_MODELVIEW);
-}
-
-
-
-void VDRCOpenGLWidget::perspective(GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble zFar)
-{
-	GLdouble xmin, xmax, ymin, ymax;
-
-	ymax = zNear * tan(fovy * M_PI / 360.0);
-	ymin = -ymax;
-	xmin = ymin * aspect;
-	xmax = ymax * aspect;
-
-	glFrustum(xmin, xmax, ymin, ymax, zNear, zFar);
-}
-
-
-
-void VDRCOpenGLWidget::mousePressEvent(QMouseEvent *event)
-{
-	lastPos = event->pos();
-
-	if (event->modifiers() & Qt::ShiftModifier)
-	{
-		m_pickMode = PICK_VVERTEX;
-		gl_select(event->pos().x(), event->pos().y());
-	}
 }
 
 
@@ -170,10 +153,10 @@ void VDRCOpenGLWidget::mouseMoveEvent(QMouseEvent *event)
 	int dy = event->y() - lastPos.y();
 
 	float angleScale = 0.01f;
-	
-	if(!m_bDisableRotation)
+
+	if (!m_bDisableRotation)
 		rotate_eye_position(angleScale*-dy, angleScale*-dx, 0.0);
-	
+
 	lastPos = event->pos();
 	update();
 }
@@ -182,10 +165,16 @@ void VDRCOpenGLWidget::mouseMoveEvent(QMouseEvent *event)
 
 void VDRCOpenGLWidget::wheelEvent(QWheelEvent* event)
 {
-	zoomFactor += (float)event->delta()/1000.0f;
-	if (zoomFactor < 1)
+	int delta = event->delta();
+	if (delta > 0)
 	{
-		zoomFactor = 1;
+		for (int i = 0; i < delta; i++)
+			m_eyeDistance /= ZOOM_RATIO;
+	}
+	else
+	{
+		for (int i = 0; i < -delta; i++)
+			m_eyeDistance *= ZOOM_RATIO;
 	}
 	update();
 }
@@ -194,14 +183,12 @@ void VDRCOpenGLWidget::wheelEvent(QWheelEvent* event)
 
 bool VDRCOpenGLWidget::initialize_eye_position()
 {
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-
 	const rg_Point3D target(localOrigin);
 	const rg_Point3D eyePt = localOrigin + localZ * m_eyeDistance;
 	const rg_Point3D up(localY);
 
 	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
 	glLoadIdentity();
 	gluLookAt(eyePt.getX(), eyePt.getY(), eyePt.getZ(),
 		target.getX(), target.getY(), target.getZ(),
@@ -249,31 +236,6 @@ bool VDRCOpenGLWidget::rotate_eye_position_at_local_cener_point(float angleX, fl
 
 	return TRUE;
 }*/
-
-
-
-bool VDRCOpenGLWidget::zoom(const float fScale)
-{
-	GLdouble aspect_ratio; // width/height ratio
-
-						   // select the full client area
-	glViewport(0, 0, width(), height());
-
-	// compute the aspect ratio
-	// this will keep all dimension scales equal
-	aspect_ratio = (GLdouble)width() / (GLdouble)height();
-
-	// select the projection matrix and clear it
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	// select the viewing volume
-	gluPerspective(45.0f/zoomFactor, aspect_ratio, 0.1f, 10000.0f);
-
-	// switch back to the modelview matrix and clear it
-	glMatrixMode(GL_MODELVIEW);
-	return true;
-}
 
 
 
@@ -335,80 +297,6 @@ void VDRCOpenGLWidget::get_rotation(const rg_TMatrix3D& rotationMatrix, float*& 
 
 
 
-void VDRCOpenGLWidget::draw_generators(const list<BallGeneratorCore*>& generators) const
-{
-	for (list<BallGeneratorCore*>::const_iterator itForGenerator = generators.begin(); itForGenerator != generators.end(); itForGenerator++)
-	{
-		const BallGeneratorCore* generator = (*itForGenerator);
-		DynamicBall* corrBall = static_cast<DynamicBall*>(generator->getUserData());
-		Sphere sphere = corrBall->get_sphere();
-		const Color3f& color = corrBall->get_color();
-		draw_sphere(sphere.getCenter(), sphere.getRadius(), color);
-	}
-}
-
-
-
-void VDRCOpenGLWidget::draw_voronoi_vertex(const list<VVertexCore*>& VVertices, const float& ballRadius, const Color3f& color, const float& A)
-{
-	for (auto& VVertex : VVertices)
-	{
-		if (m_mapForVVertexID.count(VVertex->getID()) == 0)
-		{
-			m_mapForVVertexID[VVertex->getID()] = VVertex;
-		}
-
-		int vertexIDForPicking = NUM_PICKING_CLASS * VVertex->getID() + CLASS_VVERTEX;
-		draw_sphere(VVertex->getPoint(), ballRadius, color, A, vertexIDForPicking);
-	}
-}
-
-
-
-void VDRCOpenGLWidget::draw_voronoi_edges(const list<VEdgeCore*>& VEdges, const float& thickness, const Color3f& color, const float& A, const bool& isStipple) const
-{
-	glDisable(GL_LIGHTING);
-	for (list<VEdgeCore*>::const_iterator itForEdge = VEdges.begin(); itForEdge != VEdges.end(); itForEdge++)
-	{
-		VEdgeCore* currEdge = *itForEdge;
-		rg_Point3D pt1 = currEdge->getStartVVertex()->getPoint();
-		rg_Point3D pt2 = currEdge->getEndVVertex()->getPoint();
-		
-		if (isStipple == false)
-		{
-			draw_line(pt1, pt2, thickness, color, A);
-		}
-		else
-		{
-			draw_line_stipple(pt1, pt2, thickness, color, A);
-		}
-	}
-	glEnable(GL_LIGHTING);
-}
-
-
-
-void VDRCOpenGLWidget::draw_voronoi_faces(const list<VFaceCore*>& VFaces, const Color3f& color, const float& A) const
-{
-
-	/*for (list<VFaceCore*>::const_iterator itForFace = VFaces.begin(); itForFace != VFaces.end(); itForFace++)
-	{
-		VFaceCore* currFace = *itForFace;
-		list<VVertexCore*> boundingVVertices;
-		currFace->findBoundingVVerticesOfOuterLoopInCCW(boundingVVertices);
-		
-		list<rg_Point3D> boundingVVertexCoordinates;
-		for (list<VVertexCore*>::iterator itForVVertex = boundingVVertices.begin(); itForVVertex != boundingVVertices.end(); itForVVertex++)
-		{
-			boundingVVertexCoordinates.push_back((*itForVVertex)->getPoint());
-		}
-
-		draw_face(boundingVVertexCoordinates, color, A);
-	}*/
-}
-
-
-
 void VDRCOpenGLWidget::draw_sphere(const rg_Point3D& center, const float& radius, const Color3f& color, const float& A /*= 1.0*/, const int& elementID /*= -1*/) const
 {
 	glPushMatrix();
@@ -466,15 +354,20 @@ void VDRCOpenGLWidget::draw_line_stipple(const rg_Point3D& pt1, const rg_Point3D
 	glDisable(GL_LINE_STIPPLE);
 }
 
-void VDRCOpenGLWidget::draw_face(const list<rg_Point3D>& points, const Color3f& color, const float& A /*= 1.0*/) const
+void VDRCOpenGLWidget::draw_face(const array<rg_Point3D, 3>& points, const rg_Point3D& normal, const Color3f& color, const float& A /*= 1.0*/, const int& elementID /*= -1*/) const
 {
-	//프론트라인 161227 - 페이스 그리는 코드 완성하기
-/*
+	if (elementID != -1)
+		glLoadName(elementID);
+
 	glColor4f(color.getR(), color.getG(), color.getB(), A);
-	glBegin(gl_polygon);
-	glVertex3f(pt1.getX(), pt1.getY(), pt1.getZ());
-	glVertex3f(pt2.getX(), pt2.getY(), pt2.getZ());
-	glEnd();*/
+	glBegin(GL_TRIANGLES);
+	glNormal3f(normal.getX(), normal.getY(), normal.getZ());
+	for (int i = 0; i < 3; i++)
+		glVertex3f(points.at(i).getX(), points.at(i).getY(), points.at(i).getZ());
+	glEnd();
+	
+	/*if (elementID != -1)
+		glPopName();*/
 }
 
 
@@ -530,125 +423,37 @@ void VDRCOpenGLWidget::draw_octagonal_cone(const rg_Point3D& base, const rg_Poin
 
 
 
-void VDRCOpenGLWidget::gl_select(int x, int y)
+void VDRCOpenGLWidget::pick_object(int x, int y)
 {
-	for (int i = 0; i < SELECTION_BUFFER_SIZE; i++) { m_buff[i] = 0; }
-	m_hits = 0;
+	GLuint selectBuff[64];                                // <1>
+	GLint viewport[4];                              // <2>
 
-	GLint view[4];
+	glSelectBuffer(64, selectBuff);                       // <3>
+	glGetIntegerv(GL_VIEWPORT, viewport);                 // <4>
+	glMatrixMode(GL_PROJECTION);                          // <5>
+	glPushMatrix();                                       // <6>
+	glRenderMode(GL_SELECT);                              // <7>
+	glLoadIdentity();                                     // <8>
 
-	// compute the aspect ratio
-	// this will keep all dimension scales equal
-	float aspect_ratio = (GLdouble)width() / (GLdouble)height();
-	glSelectBuffer(SELECTION_BUFFER_SIZE, m_buff);
-	glGetIntegerv(GL_VIEWPORT, view);
-	//glRenderMode(GL_SELECT);
-	glInitNames();
+	QSize widgetSize = size();
+	float aspect_ratio = (GLdouble)widgetSize.width() / (GLdouble)widgetSize.height();
+
+	float xRatio = (float)viewport[2] / (float)widgetSize.width();
+	float yRatio = (float)viewport[3] / (float)widgetSize.height();
+
+	float x_trans = (float)x *xRatio;
+	float y_trans = (float)y *yRatio;
+
+
+	gluPickMatrix(x_trans, viewport[3] - y_trans, 1, 1, viewport);
+	gluPerspective(45.0f, aspect_ratio, .1f, MAX_DEPTH);
+
+	paintGL(); 
+
+	int hits = glRenderMode(GL_RENDER); 
 	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();
-	glLoadIdentity();
-	gluPickMatrix(x, y, SELECTION_BOX_SIZE, SELECTION_BOX_SIZE, view);
-	gluPerspective(45.0f / zoomFactor, aspect_ratio, 0.1f, 10000.0f);
+	glPopMatrix(); 
 	glMatrixMode(GL_MODELVIEW);
 
-	draw();
-
-	glMatrixMode(GL_PROJECTION);
-	glPopMatrix();
-
-	m_hits = glRenderMode(GL_RENDER);
-
-	bool bTargetFound = false;
-	if (m_hits > 0) {
-		list<int> elementIDList;
-		for (int i = 0; i < m_hits; i++)
-		{
-			elementIDList.push_back(m_buff[i * 4 + 3]);
-		}
-
-		switch (m_pickMode)
-		{
-		case PICK_VVERTEX:
-			m_selectedVtx = find_closest_VVertex(elementIDList);
-		case NON_PICKING:
-		default:
-			break;
-		}
-	}
-
-	/*if (m_selectedVtx != nullptr)
-		localOrigin = m_selectedVtx->getPoint();*/
-
-	glMatrixMode(GL_MODELVIEW);
-
-	draw();
-
-	m_pickMode = NON_PICKING;
-}
-
-bool VDRCOpenGLWidget::find_selected_elements()
-{
-	list<int> elementIDList;
-	for (int i = 0; i < m_hits; i++)
-	{
-		elementIDList.push_back(m_buff[i * 4 + 3]);
-	}
-
-	VVertexCore* closestVVertex = nullptr;
-	
-	if (elementIDList.size() > 0)
-	{
-		switch (m_pickMode)
-		{
-		case PICK_VVERTEX:
-			closestVVertex = find_closest_VVertex(elementIDList);
-			break;
-		default:
-			break;
-		}
-	}
-
-	if (closestVVertex != nullptr)
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
-
-VVertexCore* VDRCOpenGLWidget::find_closest_VVertex(const list<int>& elementIDList)
-{
-	VVertexCore* closestVVertex = nullptr;
-	float maxDistanceToZ = -FLT_MAX;
-
-	for (auto& currID : elementIDList)
-	{
-		int classID = currID % NUM_PICKING_CLASS;
-		int elementID = (currID - classID) / NUM_PICKING_CLASS;
-
-		if (classID == CLASS_VVERTEX)
-		{
-			VVertexCore* currVtx = m_mapForVVertexID.at(elementID);
-			float distanceToZ = rg_Point3D(currVtx->getPoint() - localOrigin).innerProduct(localZ);
-			if (distanceToZ > maxDistanceToZ)
-			{
-				maxDistanceToZ = distanceToZ;
-				closestVVertex = currVtx;
-			}
-		}
-	}
-
-	return closestVVertex;
-}
-
-
-
-void VDRCOpenGLWidget::enlist_VVertices(set<VVertexCore*>& vertices)
-{
-	for (auto& vertex : vertices)
-	{
-		m_mapForVVertexID[vertex->getID()] = vertex;
-	}
+	process_picking(hits, selectBuff);
 }
