@@ -93,9 +93,12 @@ public:
 	void draw_point(rg_Point3D& pt, const float& ptSize, const Color3f& color, const float& A = 1.0, const int& elementID = -1) const;
 	void draw_line(const rg_Point3D& pt1, const rg_Point3D& pt2, const float& width, const Color3f& color, const float& A = 1.0) const;
 	void draw_line_stipple(const rg_Point3D& pt1, const rg_Point3D& pt2, const float& thickness, const Color3f& color, const float& A = 1.0) const;
+	void draw_circle(const rg_Point3D& center, const double& radius, const rg_Point3D& zVec, const float& width, const Color3f& color, const float& A = 1.0) const;
 	void draw_face(const array<rg_Point3D, 3>& points, const rg_Point3D& normal, const Color3f& color, const float& A = 1.0, const int& elementID = -1) const;
 	void draw_triangle(const array<rg_Point3D, 3>& points, const Color3f& color, const float& A = 1.0) const;
 	void draw_octagonal_cone(const rg_Point3D& base, const rg_Point3D& tip, const float& radius, const Color3f& color, const float& A = 1.0) const;
+
+	void draw_polygon(const list<rg_Point3D>& boundaryVertices, const rg_Point3D& normal, const Color3f& color, const float& A = 1.0) const;
 
 	//For picking
 	void pick_object(int x, int y);

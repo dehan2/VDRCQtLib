@@ -354,6 +354,23 @@ void VDRCOpenGLWidget::draw_line_stipple(const rg_Point3D& pt1, const rg_Point3D
 	glDisable(GL_LINE_STIPPLE);
 }
 
+
+
+void VDRCOpenGLWidget::draw_circle(const rg_Point3D& center, const double& radius, const rg_Point3D& zVec, const float& width, const Color3f& color, const float& A /*= 1.0*/) const
+{
+	rg_Point3D xVec = rg_Point3D(1, 0, 0).crossProduct(zVec);
+	rg_Point3D yVec = zVec.crossProduct(xVec);
+
+	for (int i = 0; i < 20; i++)
+	{
+		rg_Point3D startPt = center + cos(2 * M_PI * i / 20.0) * xVec + sin(2 * M_PI * i / 20.0) * yVec;
+		rg_Point3D endPt = center + cos(2 * M_PI * (i+1) / 20.0) * xVec + sin(2 * M_PI * (i+1) / 20.0) * yVec;
+		draw_line(startPt, endPt, width, color, A);
+	}
+}
+
+
+
 void VDRCOpenGLWidget::draw_face(const array<rg_Point3D, 3>& points, const rg_Point3D& normal, const Color3f& color, const float& A /*= 1.0*/, const int& elementID /*= -1*/) const
 {
 	if (elementID != -1)
@@ -419,6 +436,24 @@ void VDRCOpenGLWidget::draw_octagonal_cone(const rg_Point3D& base, const rg_Poin
 	array<rg_Point3D, 3> basePoints = { baseOctagonPt[0], baseOctagonPt[7], base };
 	draw_triangle(bevelPoints, color, A);
 	draw_triangle(basePoints, color, A);
+}
+
+
+
+void VDRCOpenGLWidget::draw_polygon(const list<rg_Point3D>& boundaryVertices, const rg_Point3D& normal, const Color3f& color, const float& A /*= 1.0*/) const
+{
+	glColor4f(color.getR(), color.getG(), color.getB(), A);
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_LIGHTING);
+	glBegin(GL_POLYGON);
+	for (const auto& vertex : boundaryVertices)
+	{
+		glVertex3f(vertex.getX(), vertex.getY(), vertex.getZ());
+	}
+	glEnd();
+	glEnable(GL_CULL_FACE);
+	glEnable(GL_LIGHTING);
+
 }
 
 
